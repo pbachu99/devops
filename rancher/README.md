@@ -1,3 +1,5 @@
+# This Vagrant setup of Rancher copied from Racher repository
+
 # Vagrant Quickstart
 
 This folder contains Vagrant code to stand up a single Rancher server instance with a single node cluster attached to it.
