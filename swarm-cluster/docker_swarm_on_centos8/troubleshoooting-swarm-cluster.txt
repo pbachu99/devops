@@ -1,0 +1,46 @@
+* some troubleshoooting steps for Swarm cluster
+
+
+First check the service status on 3 nodes
+ systemctl status docker
+ 
+ systemctl restart docker
+ 
+  
+1) nslookup on 3 nodes 
+
+nslookup cent8-sys1
+nslookup cent8-sys2
+nslookup cent8-sys3
+
+2) if nslookup is not working, restart DNS node 
+$ vagrant ssh (login to DNS Node)
+$ sudo reboot 
+
+3) ssh between nodes is functioning or not between nodes
+ssh cent8-sys1 (on cent8-sys3)
+ssh cent8-sys1 (on cent8-sys2)
+
+ssh cent8-sys2 (on cent8-sys1)
+ssh cent8-sys3 (on cent8-sys1)
+
+4) If ssh not working for any reason then copy the file that is existing already
+sshpass -f /tmp/temp1.txt ssh-copy-id cent8-sys2 (from cent8-sys1)
+sshpass -f /tmp/temp1.txt ssh-copy-id cent8-sys3 (from cent8-sys1)
+
+5)Disable swap with below command in /etc/fstab on all the three nodes 
+[root@cent8-sys1 ~]# sed -e '/swap/ s/^#*/#/' -i /etc/fstab
+  
+
+6) 
+
+7) 
+
+
+8)
+
+ 
+9) 
+  
+
+

@@ -1,0 +1,85 @@
+* some troubleshoooting steps for kubernetes cluster
+* step 10 will reset the cluster for any reason you could not fix 
+
+First check the service status on 3 nodes
+ systemctl status docker
+ systemctl status kubelet
+
+ systemctl restart docker
+ systemctl restart kubelet
+
+swapoff -a  (for any reason swap is ON we can get error)
+
+1) nslookup on 3 nodes 
+
+nslookup cent8-sys1
+nslookup cent8-sys2
+nslookup cent8-sys3
+
+2) if nslookup is not working, restart DNS node 
+$ vagrant ssh (login to DNS Node)
+$ sudo reboot 
+$ vagrant ssh
+* Now the nslookup must respond on the nodes 
+
+3) ssh between the nodes is functioning or not 
+ssh cent8-sys1 (on cent8-sys3)
+ssh cent8-sys1 (on cent8-sys2)
+
+ssh cent8-sys2 (on cent8-sys1)
+ssh cent8-sys3 (on cent8-sys1)
+
+4) If ssh not working for any reason then copy the file that is existing already on the nodes 
+(on cent8-sys1 node) sshpass -f /tmp/temp1.txt ssh-copy-id cent8-sys2 
+(on cent8-sys1 node) sshpass -f /tmp/temp1.txt ssh-copy-id cent8-sys3 
+* Now the ssh must be working between the nodes 
+
+5) check now all the nodes visible from node 1
+# kubectl get nodes
+  
+6) Check this file exits on all the nodes 
+$ sudo more /etc/docker/daemon.json
+https://github.com/kubernetes/kubeadm/issues/1893
+
+7) 
+$ sudo kubectl top node
+
+8)
+crictl stats
+ 
+9) Control pane / master node is not connecting then 
+swapoff -a  (for any reason swap is ON we can get error)
+Check service status 
+First check the service status on 3 nodes
+ systemctl status docker
+ systemctl status kubelet
+Restart if needed
+ systemctl restart docker
+ systemctl restart kubelet
+
+kubeadm init --service-cidr 10.96.0.0/12
+kubeadm init --service-cidr 192.168.56.0/24
+  
+kubeadm init --pod-network-cidr=192.168.56.0/24 --apiserver-advertise-address=192.168.56.110 
+
+10) reset kubernetes cluster again if the issue is prevailing. Login as root user or with sudo 
+Note: it is intended to do so on this test systems 
+
+# kubeadm reset (confirm yes to proceed further)
+delete files under /etc/kubernetes as root user or sudo or as per output 
+# rm -rf /etc/kubernetes
+
+# restart kubelet and docker services 
+#systemctl restart kubelet
+# systemctl restart docker 
+
+The next steps with kubeadm init on control pane or master node and kubeadm join on worker nodes, as given on top in the file "fix_kubnetes_cluster_setup_fails.md"
+
+References: 
+
+https://github.com/kubernetes/kubeadm/issues/1893
+https://kubernetes.io/docs/tasks/tools/
+https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/kubelet-integration/
+debugging - basics - good one
+https://www.containiq.com/post/debugging-kubernetes-nodes-in-not-ready-state
+ 

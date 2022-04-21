@@ -1,0 +1,145 @@
+On the below link I found useful information, but the DNS setup and networking etc was not there
+https://www.server-world.info/en/note?os=CentOS_8&p=microk8s&f=1
+on the top right we see the configuration steps
+
+Further configuration steps for this setup
+restart DNS/cent8_dns server once if nslookup doesn't ping from all the nodes
+[root@cent8-sys1 ~]# nslookup cent8-sys1
+[root@cent8-sys2 ~]# nslookup cent8-sys2
+[root@cent8-sys3 ~]# nslookup cent8-sys3
+
+1) On all the nodes 
+[root@cent8-sys1 ~]# microk8s stop/start/status
+[root@cent8-sys2 ~]# microk8s stop/start/status
+[root@cent8-sys3 ~]# microk8s stop/start/status
+
+we should see now the hostname of each node under 'NAME' on all the 3 nodes
+[root@cent8-sys1 ~]# microk8s kubectl get nodes
+NAME                    STATUS     ROLES    AGE   VERSION
+cent8-sys1              Ready      <none>   66s   v1.20.6-34+e4abae43f6acde
+
+2) Configure Master Node and add nodes to master (on the above link, it is section 3 'add nodes')
+[root@cent8-sys1 ~]# microk8s add-node
+We see a token now
+Pick the token with Host IP we configured. In my case, it is shown with 192.168.56.110 IP
+microk8s join 192.168.56.110:25000/xxxxxxxxxxxxxxxxxxxxxxxxx
+
+On Node2 that is cent8-sys2, issue the below to join master node:
+[root@cent8-sys2 ~]# microk8s join 192.168.56.110:25000/xxxxxxxxxxxxxxxxxxxxxxxxx
+
+verify on Node 1 with the below 'get nodes' and we see Node 2 joined
+[root@cent8-sys1 ~]# microk8s kubectl get nodes
+NAME                    STATUS     ROLES    AGE    VERSION
+cent8-sys1              Ready      <none>   9m2s   v1.20.6-34+e4abae43f6acde
+cent8-sys2              NotReady   <none>   6s     v1.20.6-34+e4abae43f6acde
+
+Generante another token for Node 2 & 3 on Node 1 (useful in case it's not joining)
+Note: If token error on any node comes up repeat the command 'microk8s add-node' on cent8-sys1 to generate another token for a node
+
+[root@cent8-sys1 ~]# microk8s add-node
+In my case it was 
+ microk8s join 192.168.56.110:25000/xxxxxxxxxxxxxxxxxxxxxxxxx
+ 
+On Node3 that is cent8-sys3:
+[root@cent8-sys3 ~]# microk8s join 192.168.56.110:25000/xxxxxxxxxxxxxxxxxxxxxxxxx
+
+
+Verify on Node 1 with the below. Now both nodes joined
+[root@cent8-sys1 ~]# microk8s kubectl get nodes
+NAME                    STATUS     ROLES    AGE     VERSION
+localhost.localdomain   NotReady   <none>   57m     v1.20.6-34+e4abae43f6acde
+cent8-sys1              Ready      <none>   14m     v1.20.6-34+e4abae43f6acde
+cent8-sys2              Ready      <none>   5m45s   v1.20.6-34+e4abae43f6acde
+cent8-sys3              Ready      <none>   29s     v1.20.6-34+e4abae43f6acde
+
+3) Deploy Pod (on the above link, it is section 2 'deploy pods')
+We are on Node 1 that is cent8-sys1
+
+[root@cent8-sys1 ~]# microk8s kubectl create deployment test-nginx --image=nginx
+
+[root@cent8-sys1 ~]# microk8s kubectl get pods
+NAME                         READY   STATUS    RESTARTS   AGE
+test-nginx-59ffd87f5-74rzg   1/1     Running   0          106s
+
+# scale out pods
+[root@cent8-sys1 ~]# microk8s kubectl scale deployment test-nginx --replicas=3
+deployment.apps/test-nginx scaled
+
+[root@cent8-sys1 ~]# microk8s kubectl get pods
+NAME                         READY   STATUS              RESTARTS   AGE
+test-nginx-59ffd87f5-74rzg   1/1     Running             0          3m58s
+test-nginx-59ffd87f5-4h2g8   0/1     ContainerCreating   0          13s
+test-nginx-59ffd87f5-tm7hq   0/1     ContainerCreating   0          13s
+
+[root@cent8-sys1 ~]# microk8s kubectl get pods
+NAME                         READY   STATUS    RESTARTS   AGE
+test-nginx-59ffd87f5-74rzg   1/1     Running   0          5m11s
+test-nginx-59ffd87f5-4h2g8   1/1     Running   0          86s
+test-nginx-59ffd87f5-tm7hq   1/1     Running   0          86s
+
+# checking, especiall for --type 
+[root@cent8-sys1 ~]# microk8s kubectl expose --help
+Expose a resource as a new Kubernetes service.
+
+# set service
+[root@cent8-sys1 ~]# microk8s kubectl expose deployment test-nginx --type="NodePort" --port 80
+service/test-nginx exposed
+[root@cent8-sys1 ~]# microk8s kubectl get services test-nginx
+NAME         TYPE       CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE
+test-nginx   NodePort   10.152.183.30   <none>        80:32035/TCP   16s
+
+4) Enabling Dashboard that is (on the above link it is 4 section 'enabling dashboard')
+
+[root@cent8-sys1 ~]# microk8s enable dashboard dns
+Enabling Kubernetes Dashboard
+
+[root@cent8-sys1 ~]# microk8s kubectl get services -n kube-system
+
+verify all are showing with 'running'
+[root@cent8-sys1 ~]# microk8s kubectl -n kube-system get pods -o wide
+
+if you see any sort of error etc 
+try 1
+[root@cent8-sys1 ~]# microk8s stop
+Stopped.
+[root@cent8-sys1 ~]# microk8s start
+Started.
+try 2 
+shutdown and startup all the nodes including DNS node. 
+
+# confirm security token
+[root@cent8-sys1 ~]# microk8s kubectl -n kube-system describe secret $(microk8s kubectl -n kube-system get secret | grep default-token | awk '{print $1}') 
+
+[root@cent8-sys1 ~]# microk8s kubectl port-forward -n kube-system service/kubernetes-dashboard --address 0.0.0.0 10443:443 
+
+login on any browser on your network with:  https://192.168.56.110:10443
+
+copy and paste the token in the browser to login, the token we see from previous command, that is 
+[root@cent8-sys1 ~]# microk8s kubectl -n kube-system describe secret $(microk8s kubectl -n kube-system get secret | grep default-token | awk '{print $1}') 
+
+
+# few other useful information 
+ll /snap/
+[root@cent8-sys1 bin]# snap help
+The snap command lets you install, configure, refresh and remove snaps.
+Snaps are packages that work across many different Linux distributions,
+enabling secure delivery and operation of the latest apps and utilities.
+
+ll /snap/microk8s/current/
+snap find kubernetes
+snap find microk8s
+snap list
+
+[root@cent8-sys1 ~]# snapctl --help
+Usage:
+  snapctl [OPTIONS] <command>
+
+#Other related links
+
+https://phoenixnap.com/kb/how-to-install-kubernetes-on-centos
+https://kubernetes.io/docs/setup/
+https://kubernetes.io/docs/tasks/tools/
+https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/
+
+on ubuntu, but tips
+https://www.howtoforge.com/tutorial/how-to-install-kubernetes-on-ubuntu/

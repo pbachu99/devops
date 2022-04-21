@@ -1,0 +1,29 @@
+Below are some useful steps after the cluster is up and running
+
+1)Disable swap with below command in /etc/fstab on all the three nodes 
+[root@oracle8_sys1 ~]# sed -e '/swap/ s/^#*/#/' -i /etc/fstab
+
+[root@oracle8_sys1 ~]# grep swap /etc/fstab
+#UUID=af2193c2-a77a-4111-a615-9fd777b39480  none    swap    defaults        0 0
+
+2) Assign Roles to Worker nodes
+[root@oracle8_sys1 ~]# kubectl get nodes
+NAME         STATUS   ROLES                  AGE   VERSION
+oracle8_sys1   Ready    control-plane,master   21m   v1.23.5
+oracle8_sys2   Ready    <none>                 16m   v1.23.5
+oracle8_sys3   Ready    <none>                 16m   v1.23.5
+We can see the worker nodes have no roles assigned
+
+Assign Roles to Worker nodes (Below commands issued on control-plane/Master Node)
+[root@oracle8_sys1 ~]#kubectl label node oracle8_sys2 node-role.kubernetes.io/worker=worker
+[root@oracle8_sys1 ~]#kubectl label node oracle8_sys3 node-role.kubernetes.io/worker=worker
+
+3) helm setup 
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+chmod 700 get_helm.sh
+get_helm.sh
+
+# https://helm.sh/docs/intro/install/
+# https://artifacthub.io/packages/helm/k8s-dashboard/kubernetes-dashboard
+Installing dashboard
+https://adamtheautomator.com/kubernetes-dashboard/
